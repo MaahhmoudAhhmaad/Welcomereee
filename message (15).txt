@@ -1,0 +1,130 @@
+const Discord = require('discord.js');
+const fs = require("fs"); 
+const client = new Discord.Client();
+const Canvas = require("canvas");
+const db = JSON.parse(fs.readFileSync('./db.json', 'utf8'));
+const invites = {};
+
+client.on("ready", () => {
+    const Guilds = client.guilds.cache.map(guild => guild.name);
+    console.log(Guilds);
+});
+
+client.on('ready', async () => {
+  client.guilds.cache.forEach(g => {
+    g.fetchInvites().then(guildInvites => {
+      invites[g.id] = guildInvites;
+    });
+  });
+});
+  
+  client.on('guildMemberAdd', async (member) => {
+    if(!db[member.guild.id]){
+      member.guild.owner.send('**قم بتحديد روم الترحيب**')
+    } else   
+    var x = member.guild.channels.cache.get(db[member.guild.id].channel)
+    const background = await Canvas.loadImage(db[member.guild.id].photo);
+    //لعرض وطول الصورة لا تلعب فيها
+    const canvas =  Canvas.createCanvas(800, 335);
+    //
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+    ctx.strokeRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '35px DUBAI-MEDIUM';
+    ctx.fillText(`${member.user.username}` , 363, 178);
+  /// الاولى تودي اليوزر يمين كل ما زادت
+  ///الثانية كلما نقصت ترفع اليوزر فوق
+  /*
+  تو اسم السيرفر في الترحيب
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '35px DUBAI-MEDIUM';
+    ctx.fillText(`To ${member.guild.name}` , 340, 300);
+  */
+  
+    ctx.beginPath();
+    ctx.arc(152, 156, 135, 0, Math.PI * 2, true);
+    
+    //كلما نقص الاول الصورة تروح يسار
+    //كلما نقص الثاني الصورة تطلع فوق
+    //كلما زاد الثالث الصوة تكبر
+    //لا تلعب بالرابع
+    ctx.closePath();
+    ctx.clip();
+    const avatar = await Canvas.loadImage(member.user.displayAvatarURL({ format: 'jpg' }));
+    ctx.drawImage(avatar, 12, 26, 283, 283)
+    
+  //كلما نقص الاول الصورة تروح يسار يجب ان يكون 140 فرق بين الي فوق
+  //كلما نقص الثانيالصورة تطلع فوق ويجب ان يكون الفرق بينهما 130
+  //الثالث والرابع مربوطين بالثالث فوق
+  
+    const attachment = new Discord.MessageAttachment(canvas.toBuffer());
+  x.send(attachment)
+  
+member.guild.fetchInvites().then(guildInvites => {
+const ei = invites[member.guild.id];
+invites[member.guild.id] = guildInvites;
+const invitecounter = []
+const userinvites = []
+const username =[]
+guildInvites.forEach((i)=>{
+if(ei.get(i.code).uses<i.uses){
+var inviter = i.inviter
+var invites = i.uses
+invitecounter.push(inviter)
+userinvites.push(invites)
+username.push(inviter.id)
+}
+});
+if(invitecounter.length==0){
+var inviter = member.guild.owner
+var invitesx = "0"
+invitecounter.push(inviter)
+userinvites.push(invitesx)
+username.push(inviter.user.id)
+}
+x.send(`*<@${member.user.id}> You Are in ${member.guild.name} Now\nBy ; <@${username}>*`);
+}); 
+});
+  
+  client.on('message', async message => {
+    if (!message.content.startsWith(prefix) || message.author.bot) return;
+    const pref = message.content.slice(prefix.length).trim().split(' ');
+    const command = pref.shift().toLowerCase();
+    if (command === 'set-w') {
+      let chn;
+      if (message.member.hasPermission('ADMINISTRATOR')){
+        chn = message.mentions.channels.first();
+        if(!chn) return message.channel.send(`**Example:\n\`${prefix}${command}\` \`#welcome\`**`);
+        if(db[message.guild.id]) {
+          db[message.guild.id].channel = chn.id;
+        } else 
+        db[message.guild.id] = {
+        channel: chn.id
+      } 
+      } else return;
+      message.channel.send(`**شات الترحيب الجديد ${chn}**`);
+    }
+    fs.writeFileSync("./db.json",JSON.stringify(db), function(err){
+      if (err) console.log(err);
+    })
+  })
+  client.on('message', async message => {
+    if (!message.content.startsWith(prefix) || message.author.bot) return;
+    const pref = message.content.slice(prefix.length).trim().split(' ');
+    const command = pref.shift().toLowerCase();
+    if (command === 'set-b') {
+      if (message.member.hasPermission('ADMINISTRATOR')){
+        let args = message.content.split(" ").slice(1).join(" ");
+        if(!args) return message.channel.send(`**Example:\n\`${prefix}${command}\` \`https://cdn.discordapp.com/attachments/8396526.........\`**`);
+        db[message.guild.id].photo = args;
+    
+      } else return;
+      message.channel.send(`**تم تغيير صورة خلفية الترحيب**`);
+    }
+    fs.writeFileSync("./db.json",JSON.stringify(db), function(err){
+      if (err) console.log(err);
+    });
+  });
+
+client.login('');
